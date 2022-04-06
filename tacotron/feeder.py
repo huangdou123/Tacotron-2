@@ -71,42 +71,21 @@ class Feeder:
 		with tf.device('/cpu:0'):
 			# Create placeholders for inputs and targets. Don't specify batch size because we want
 			# to be able to feed different batch sizes at eval time.
-			self._placeholders = [
-			tf.placeholder(tf.int32, shape=(None, None), name='inputs'),
-			tf.placeholder(tf.int32, shape=(None, ), name='input_lengths'),
-			tf.placeholder(tf.float32, shape=(None, None, hparams.num_mels), name='mel_targets'),
-			tf.placeholder(tf.float32, shape=(None, None), name='token_targets'),
-			tf.placeholder(tf.float32, shape=(None, None, hparams.num_freq), name='linear_targets'),
-			tf.placeholder(tf.int32, shape=(None, ), name='targets_lengths'),
-			tf.placeholder(tf.int32, shape=(hparams.tacotron_num_gpus, None), name='split_infos'),
-			]
-
+			self.inputs = tf.convert_to_tensor([1])
+            self.input_lengths = tf.convert_to_tensor([1])
+            self.mel_targets = tf.convert_to_tensor([1.0])
+            self.token_targets=tf.convert_to_tensor([1.0])
+            self.linear_targets=tf.convert_to_tensor([1.0])
+            self.targets_lengths=tf.convert_to_tensor([1])
+            self.split_infos=tf.convert_to_tensor([1])
 			# Create queue for buffering data
-			queue = tf.FIFOQueue(8, [tf.int32, tf.int32, tf.float32, tf.float32, tf.float32, tf.int32, tf.int32], name='input_queue')
-			self._enqueue_op = queue.enqueue(self._placeholders)
-			self.inputs, self.input_lengths, self.mel_targets, self.token_targets, self.linear_targets, self.targets_lengths, self.split_infos = queue.dequeue()
-
-			self.inputs.set_shape(self._placeholders[0].shape)
-			self.input_lengths.set_shape(self._placeholders[1].shape)
-			self.mel_targets.set_shape(self._placeholders[2].shape)
-			self.token_targets.set_shape(self._placeholders[3].shape)
-			self.linear_targets.set_shape(self._placeholders[4].shape)
-			self.targets_lengths.set_shape(self._placeholders[5].shape)
-			self.split_infos.set_shape(self._placeholders[6].shape)
-
-			# Create eval queue for buffering eval data
-			eval_queue = tf.FIFOQueue(1, [tf.int32, tf.int32, tf.float32, tf.float32, tf.float32, tf.int32, tf.int32], name='eval_queue')
-			self._eval_enqueue_op = eval_queue.enqueue(self._placeholders)
-			self.eval_inputs, self.eval_input_lengths, self.eval_mel_targets, self.eval_token_targets, \
-				self.eval_linear_targets, self.eval_targets_lengths, self.eval_split_infos = eval_queue.dequeue()
-
-			self.eval_inputs.set_shape(self._placeholders[0].shape)
-			self.eval_input_lengths.set_shape(self._placeholders[1].shape)
-			self.eval_mel_targets.set_shape(self._placeholders[2].shape)
-			self.eval_token_targets.set_shape(self._placeholders[3].shape)
-			self.eval_linear_targets.set_shape(self._placeholders[4].shape)
-			self.eval_targets_lengths.set_shape(self._placeholders[5].shape)
-			self.eval_split_infos.set_shape(self._placeholders[6].shape)
+			self.eval_inputs=tf.convert_to_tensor([1])
+            self.eval_input_lengths=tf.convert_to_tensor([1])
+            self.eval_mel_targets=tf.convert_to_tensor([1.0])
+            self.eval_token_targets=tf.convert_to_tensor([1.0])
+            self.eval_linear_targets=tf.convert_to_tensor([1.0])
+            self.eval_targets_lengths=tf.convert_to_tensor([1])
+            self.eval_split_infos=tf.convert_to_tensor([1])
 
 	def start_threads(self, session):
 		self._session = session

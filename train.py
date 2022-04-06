@@ -12,7 +12,8 @@ from wavenet_vocoder.train import wavenet_train
 
 log = infolog.log
 
-
+def str2bool(str):
+  return True if str.lower() == 'true' else False
 def save_seq(file, sequence, input_path):
 	'''Save Tacotron-2 training state to disk. (To skip for future runs)
 	'''
@@ -60,7 +61,7 @@ def train(args, log_dir, hparams):
 	else:
 		checkpoint = os.path.join(log_dir, 'taco_pretrained/')
 
-	if not GTA_state:
+	if not True:
 		log('\n#############################################################\n')
 		log('Tacotron GTA Synthesis\n')
 		log('###########################################################\n')
@@ -115,7 +116,15 @@ def main():
 	parser.add_argument('--wavenet_train_steps', type=int, default=500000, help='total number of wavenet training steps')
 	parser.add_argument('--tf_log_level', type=int, default=1, help='Tensorflow C++ log level.')
 	parser.add_argument('--slack_url', default=None, help='slack webhook notification destination link')
-	args = parser.parse_args()
+	parser.add_argument('--lognode_time', type=str2bool, default=False, help='iff to do profiling')
+    parser.add_argument('--allow_growth', type=str2bool, default=False, help='iff gpu memory allow growth')
+    parser.add_argument('--allow_shared', type=str2bool, default=False, help='iff allow share gpu')
+    parser.add_argument('--use_unified_memory', type=str2bool, default=False, help='iff use unified memory')
+    parser.add_argument('--target', default='', help='session target')
+    parser.add_argument('--gpu_memory_frac_for_testing', type=float, default=0, help='gpu memory frac')
+    parser.add_argument('--build_cost_model', type=int, default=0, help='build cost model per')
+    parser.add_argument('--build_cost_model_after', type=int, default=0, help='build cost model after')
+    args = parser.parse_args()
 
 	accepted_models = ['Tacotron', 'WaveNet', 'Tacotron-2']
 

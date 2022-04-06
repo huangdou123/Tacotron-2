@@ -57,21 +57,75 @@ class Tacotron():
 			hp = self._hparams
 			lout_int = [tf.int32]*hp.tacotron_num_gpus
 			lout_float = [tf.float32]*hp.tacotron_num_gpus
+            
+            batch_size = hp.tacotron_batch_size
 
+            input_lengths = tf.random_uniform(
+            shape= (batch_size, ),
+            minval = 113,
+            maxval = 114,
+            dtype = tf.int32
+            )
+      
+            targets_lengths = tf.random_uniform(
+            shape = (batch_size , ),
+            minval = 487,
+            maxval = 488,
+            dtype = tf.int32
+            )
+
+            split_infos = tf.constant([[113,487,487,487]])
 			tower_input_lengths = tf.split(input_lengths, num_or_size_splits=hp.tacotron_num_gpus, axis=0)
 			tower_targets_lengths = tf.split(targets_lengths, num_or_size_splits=hp.tacotron_num_gpus, axis=0) if targets_lengths is not None else targets_lengths
 
-			p_inputs = tf.py_func(split_func, [inputs, split_infos[:, 0]], lout_int)
-			p_mel_targets = tf.py_func(split_func, [mel_targets, split_infos[:,1]], lout_float) if mel_targets is not None else mel_targets
-			p_stop_token_targets = tf.py_func(split_func, [stop_token_targets, split_infos[:,2]], lout_float) if stop_token_targets is not None else stop_token_targets
-			p_linear_targets = tf.py_func(split_func, [linear_targets, split_infos[:,3]], lout_float) if linear_targets is not None else linear_targets
+			p_inputs = []
+            p_mel_targets = []
+            p_stop_token_targets = []
+            p_linear_targets = []
+            self.Inputs1 = inputs
+            self.Mel_targets1 = mel_targets
+            self.Stop_token_targets1 = stop_token_targets
+            self.Linear_targets1 = linear_targets
+            
+            p_inputs = tf.random_uniform(
+              shape = (1 , batch_size , 113),
+              minval = 0,
+              maxval =66,
+              dtype = tf.int32,
+              seed = None,
+              name = None
+              )
+            p_mel_targets = tf.random_uniform(
+              shape = (1, batch_size , 487 , 80),
+              minval = -4.0,
+              maxval = 4.0,
+              dtype = tf.float32
+              )
+            p_stop_token_targets =tf.cast( 
+              tf.random_uniform(
+              shape= (1, batch_size , 487 ),
+              minval = 0,
+              maxval = 2,
+              dtype = tf.int32
+              ), dtype= tf.float32)
+            p_linear_targets = tf.random_uniform(
+              shape = (1, batch_size , 487 , 1025),
+              minval = -4.0,
+              maxval = 4.0,
+              dtype = tf.float32,
+              seed = None,
+              name = None
+              )
+            self.Inputs2 = p_inputs #self这里指tacotron模型本身
+            self.Mel_targets2 = p_mel_targets
+            self.Stop_token_targets2 = p_stop_token_targets
+            self.Linear_targets2 = p_linear_targets 
 
 			tower_inputs = []
 			tower_mel_targets = []
 			tower_stop_token_targets = []
 			tower_linear_targets = []
 
-			batch_size = tf.shape(inputs)[0]
 			mel_channels = hp.num_mels
 			linear_channels = hp.num_freq
 			for i in range (hp.tacotron_num_gpus):

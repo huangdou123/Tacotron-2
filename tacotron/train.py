@@ -19,6 +19,8 @@ from tqdm import tqdm
 
 log = infolog.log
 
+import mem_draw_util
+_NUM_STEPS_TO_PROFILE = (30, 31)
 
 def time_string():
 	return datetime.now().strftime('%Y-%m-%d %H:%M')
@@ -185,15 +187,21 @@ def train(log_dir, args, hparams):
 	log('Tacotron training set to a maximum of {} steps'.format(args.tacotron_train_steps))
 
 	#Memory allocation on the GPU as needed
-	config = tf.ConfigProto()
-	config.gpu_options.allow_growth = True
-	config.allow_soft_placement = True
+	  config = tf.compat.v1.ConfigProto()
+      config.gpu_options.allow_growth = args.allow_growth
+      config.graph_options.build_cost_model = args.build_cost_model
+      config.graph_options.build_cost_model_after = args.build_cost_model_after
+      config.gpu_options.allow_shared = args.allow_shared
+      config.gpu_options.experimental.use_unified_memory = args.use_unified_memory
+      if args.gpu_memory_frac_for_testing > 0:
+         config.gpu_options.per_process_gpu_memory_fraction = args.gpu_memory_frac_for_testing
+      config.allow_soft_placement = True
 
 	#Train
-	with tf.Session(config=config) as sess:
+	with tf.compat.v1.Session(target=args.target, config=config) as sess:
 		try:
 			summary_writer = tf.summary.FileWriter(tensorboard_dir, sess.graph)
-
+			
 			sess.run(tf.global_variables_initializer())
 
 			#saved model restoring
@@ -217,21 +225,39 @@ def train(log_dir, args, hparams):
 				saver.save(sess, checkpoint_path, global_step=global_step)
 
 			#initializing feeder
-			feeder.start_threads(sess)
+
 
 			#Training loop
+            speed = 0.0
 			while not coord.should_stop() and step < args.tacotron_train_steps:
-				start_time = time.time()
-				step, loss, opt = sess.run([global_step, model.loss, model.optimize])
+                if args.lognode_time:
+                   if _NUM_STEPS_TO_PROFILE[0] <= step < _NUM_STEPS_TO_PROFILE[1]:
+                      run_options = tf.compat.v1.RunOptions(trace_level=tf.compat.v1.RunOptions.FULL_TRACE)
+                      run_metadata = tf.compat.v1.RunMetadata()
+                   else:
+                      run_options = None
+                      run_metadata = None
+                else:
+                  run_options = None
+                  run_metadata = None
+			    start_time = time.time()
+			    step, loss, opt = sess.run([global_step, model.loss, model.optimize], options=run_options, run_metadata=run_metadata)    
 				time_window.append(time.time() - start_time)
 				loss_window.append(loss)
 				message = 'Step {:7d} [{:.3f} sec/step, loss={:.5f}, avg_loss={:.5f}]'.format(
 					step, time_window.average, loss, loss_window.average)
-				log(message, end='\r', slack=(step % args.checkpoint_interval == 0))
-
-				if np.isnan(loss) or loss > 100.:
-					log('Loss exploded to {:.5f} at step {}'.format(loss, step))
-					raise Exception('Loss exploded')
+				if step > 10:
+                  speed += time_window.average
+                log(message, end='\n', slack=(step % args.checkpoint_interval == 0))
+        
+                if run_metadata != None:
+                    mem_draw_util.get_alloc_infos(net=args.model,
+                                        batch_size=hparams.tacotron_batch_size,
+                                        step_id=step,
+                                        is_train=True,
+                                        run_metadata=run_metadata,
+                                        draw=False)
+	
 
 				if step % args.summary_interval == 0:
 					log('\nWriting summary at step {}'.format(step))
@@ -371,7 +397,7 @@ def train(log_dir, args, hparams):
 					#save alignment plot to disk (control purposes)
 					plot.plot_alignment(alignment, os.path.join(plot_dir, 'step-{}-align.png'.format(step)),
 						title='{}, {}, step={}, loss={:.5f}'.format(args.model, time_string(), step, loss),
-						max_len=target_length // hparams.outputs_per_step)
+						max_len=target_length // hparam.outputs_per_step)
 					#save real and predicted mel-spectrogram plot to disk (control purposes)
 					plot.plot_spectrogram(mel_prediction, os.path.join(plot_dir, 'step-{}-mel-spectrogram.png'.format(step)),
 						title='{}, {}, step={}, loss={:.5f}'.format(args.model, time_string(), step, loss), target_spectrogram=target,
@@ -388,7 +414,8 @@ def train(log_dir, args, hparams):
 					log('Tacotron Character embeddings have been updated on tensorboard!')
 
 			log('Tacotron training complete after {} global steps!'.format(args.tacotron_train_steps), slack=True)
-			return save_dir
+			log('speed: {}'.format(speed / (args.tacotron_train_steps - 10)))
+            return save_dir
 
 		except Exception as e:
 			log('Exiting due to exception: {}'.format(e), slack=True)
